@@ -1,0 +1,63 @@
+<view class="container">
+  <!-- 顶部信息 -->
+  <view class="header">
+    <view class="fund-info">
+      <text class="name">{{name}}</text>
+      <text class="code">{{code}}</text>
+    </view>
+    <view class="price-info">
+      <text class="label">当前净值</text>
+      <text class="price">{{currentPrice}}</text>
+    </view>
+  </view>
+
+  <!-- 表单卡片 -->
+  <view class="card">
+    <view class="card-title">
+      <view class="title-bar"></view>
+      <text>买入信息</text>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">买入日期</text>
+      <picker mode="date" value="{{buyDate}}" bindchange="onDateChange">
+        <view class="picker-view">
+          <text class="picker-icon">📅</text>
+          <text class="{{buyDate ? 'picker-text' : 'placeholder'}}">{{buyDate || '选择日期'}}</text>
+          <text class="arrow">›</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">持有份额</text>
+      <view class="input-wrapper">
+        <text class="input-prefix">份</text>
+        <input class="input" type="digit" placeholder="请输入份额" bindinput="onQuantityInput" value="{{quantity}}" />
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">买入价格</text>
+      <view class="input-wrapper disabled">
+        <text class="input-prefix">¥</text>
+        <input class="input" type="digit" value="{{buyPrice}}" disabled />
+      </view>
+      <text class="form-hint">根据买入日期自动获取</text>
+    </view>
+  </view>
+
+  <!-- 成本预览 -->
+  <view class="total-card">
+    <view class="total-left">
+      <text class="total-label">预计成本</text>
+      <text class="total-desc">份额 × 买入价格</text>
+    </view>
+    <text class="total-value">¥{{totalCost}}</text>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="btn-wrapper">
+    <button class="btn" bindtap="onSubmit" hover-class="btn-hover">确认添加</button>
+  </view>
+</view>
