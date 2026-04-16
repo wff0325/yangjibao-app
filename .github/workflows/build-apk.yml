@@ -1,4 +1,4 @@
-name: Build Android APK (Node 20 & Open Source)
+name: Build Android APK (Hotfix Version)
 
 on:
   push:
@@ -14,20 +14,22 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # 使用你要求的 Node 20
+          node-version: 20
 
-      - name: Install Converter
-        # 使用 uni-app 的转换工具，它在 Node 20 上兼容性最好
+      - name: Install & Patch Converter
         run: |
-          npm install -g miniprogram-to-uniapp
-          # 修复该工具在 Linux 环境下的权限问题
-          chmod +x $(which w2u) || true
+          # 1. 安装工具
+          npm install miniprogram-to-uniapp
+          
+          # 2. 【核心修复】手动补齐工具漏掉的文件，解决 MODULE_NOT_FOUND 报错
+          MOD_PATH="node_modules/miniprogram-to-uniapp/src/page/script/vantComponent"
+          mkdir -p $MOD_PATH
+          echo "module.exports = { transform: function(a){return a} };" > $MOD_PATH/VantComponent-transformer.js
+          echo "补丁已应用：已手动创建缺失的 VantComponent-transformer 模块"
 
-      - name: Convert Native WXML to Web Project
-        # 将你的原生小程序代码转换为一个可跨平台运行的项目
+      - name: Convert Mini-Program
         run: |
-          # w2u 是 miniprogram-to-uniapp 的缩写
-          # 我们把转换后的代码直接放在 'converted_project' 文件夹
+          # 执行转换，即使你的代码里没用 Vant，现在的工具也不会报错了
           npx miniprogram-to-uniapp -i . -o ./converted_project
 
       - name: Setup Java & Android SDK
@@ -36,26 +38,31 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Initialize Android Wrapper (Capacitor)
-        # Capacitor 是目前最流行的开源 App 容器，完美支持 Node 20
+      - name: Build Android App via Capacitor
         run: |
           cd converted_project
-          # 初始化 package.json 防止报错
-          if [ ! -f package.json ]; then echo '{"name": "yangjibao", "version": "1.0.0"}' > package.json; fi
+          # 创建一个基础的 package.json
+          echo '{"name": "yangjibao", "version": "1.0.0", "dependencies": {}}' > package.json
+          
+          # 安装移动端外壳
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          # 初始化安卓工程
+          
+          # 初始化 Capacitor (web-dir 指向转换后的根目录)
           npx cap init yangjibao com.yangjibao.app --web-dir .
           npx cap add android
           
-      - name: Build APK
+          # 同步代码到安卓工程
+          npx cap sync android
+
+      - name: Compile APK
         run: |
-          # 进入安卓目录并利用 Gradle 编译
           cd converted_project/android
           chmod +x gradlew
+          # 先打 Debug 包，不需要配置签名即可安装
           ./gradlew assembleDebug
 
-      - name: Upload APK Result
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: yangjibao-apk
+          name: yangjibao-android-apk
           path: converted_project/android/app/build/outputs/apk/debug/*.apk
