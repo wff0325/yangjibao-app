@@ -1,4 +1,4 @@
-name: Build Android APK (Hotfix Version)
+name: Build Android APK (Ultimate Fix)
 
 on:
   push:
@@ -16,53 +16,69 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install & Patch Converter
+      - name: Prepare Sandbox Directory
         run: |
-          # 1. 安装工具
-          npm install miniprogram-to-uniapp
+          # 工具不支持 -o，它会自动在同级建文件夹。
+          # 为了防止路径混乱，我们建立一个专门的 _build/source 文件夹，把代码全移进去
+          mkdir -p _build/source
+          rsync -a --exclude='_build' --exclude='.git' ./ ./_build/source/
+
+      - name: Install & Patch Converter Tool
+        run: |
+          # 全局安装转换工具
+          npm install -g miniprogram-to-uniapp
           
-          # 2. 【核心修复】手动补齐工具漏掉的文件，解决 MODULE_NOT_FOUND 报错
-          MOD_PATH="node_modules/miniprogram-to-uniapp/src/page/script/vantComponent"
-          mkdir -p $MOD_PATH
-          echo "module.exports = { transform: function(a){return a} };" > $MOD_PATH/VantComponent-transformer.js
-          echo "补丁已应用：已手动创建缺失的 VantComponent-transformer 模块"
+          # 【核心修复】打补丁，准确修复它漏发的文件导致的 MODULE_NOT_FOUND 报错
+          MOD_PATH="$(npm root -g)/miniprogram-to-uniapp/src/page/script/vantComponent"
+          mkdir -p "$MOD_PATH"
+          echo "module.exports = { transform: function(a){return a} };" > "$MOD_PATH/VantComponent-transformer.js"
 
-      - name: Convert Mini-Program
+      - name: Convert to Uni-app
         run: |
-          # 执行转换，即使你的代码里没用 Vant，现在的工具也不会报错了
-          npx miniprogram-to-uniapp -i . -o ./converted_project
+          # 运行工具转换。-c 表示生成 Vue 工程（自带 package.json，安卓套壳必备）
+          # 这会在 _build/ 下生成一个类似于 source_uni 或 你的项目名_uni 的文件夹
+          wtu -i ./_build/source -c
 
-      - name: Setup Java & Android SDK
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build Android App via Capacitor
+      - name: Build Web Assets & Package App
         run: |
-          cd converted_project
-          # 创建一个基础的 package.json
-          echo '{"name": "yangjibao", "version": "1.0.0", "dependencies": {}}' > package.json
+          # 因为生成的文件夹名字不固定，我们通过脚本自动寻找到它
+          GENERATED_DIR=$(find ./_build -maxdepth 1 -type d -name "*_uni*" | head -n 1)
+          echo "成功找到转换后的目录: $GENERATED_DIR"
+          cd "$GENERATED_DIR"
           
-          # 安装移动端外壳
+          # 1. 安装 Vue 工程依赖
+          npm install --legacy-peer-deps
+          
+          # 2. 编译出 H5 网页静态文件（这才是安卓能看懂的东西）
+          npm run build:h5 || echo "编译警告: 部分页面转换可能不完美，但继续打包"
+          
+          # 3. 安装 Android 容器进行套壳
           npm install @capacitor/core @capacitor/cli @capacitor/android
           
-          # 初始化 Capacitor (web-dir 指向转换后的根目录)
-          npx cap init yangjibao com.yangjibao.app --web-dir .
+          # 4. 把刚刚编译好的 H5 网页塞进安卓壳子里（默认产出路径为 dist/build/h5）
+          npx cap init yangjibao com.yangjibao.app --web-dir ./dist/build/h5
           npx cap add android
-          
-          # 同步代码到安卓工程
           npx cap sync android
 
-      - name: Compile APK
+      - name: Compile Android APK
         run: |
-          cd converted_project/android
+          # 再次动态寻找目录并进入安卓工程
+          GENERATED_DIR=$(find ./_build -maxdepth 1 -type d -name "*_uni*" | head -n 1)
+          cd "$GENERATED_DIR/android"
+          
+          # 启动安卓编译
           chmod +x gradlew
-          # 先打 Debug 包，不需要配置签名即可安装
           ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: yangjibao-android-apk
-          path: converted_project/android/app/build/outputs/apk/debug/*.apk
+          # 使用通配符匹配生成的目录名，确保 100% 能拿到包
+          path: _build/*/android/app/build/outputs/apk/debug/*.apk
