@@ -1,0 +1,90 @@
+<view class="container">
+  <!-- 顶部总资产卡片 -->
+  <view class="header-card">
+    <view class="header-top">
+      <view class="header-icon">💰</view>
+      <view class="header-label">总资产(元)</view>
+    </view>
+    <view class="header-value {{totalPnl >= 0 ? 'up' : 'down'}}">{{totalValue}}</view>
+    <view class="header-pnl-row">
+      <view class="pnl-tag {{totalPnl >= 0 ? 'up' : 'down'}}">
+        <text class="pnl-arrow">{{totalPnl >= 0 ? '▲' : '▼'}}</text>
+        <text>今日 {{totalPnl >= 0 ? '+' : ''}}{{totalPnl}}</text>
+      </view>
+      <view class="pnl-pct {{totalPnl >= 0 ? 'up' : 'down'}}">{{totalPnl >= 0 ? '+' : ''}}{{totalPnlPct}}%</view>
+    </view>
+  </view>
+
+  <!-- 标签切换栏 -->
+  <view class="tab-bar">
+    <view class="tab {{tabIndex==0?'active':''}}" bindtap="switchTab" data-index="0">
+      <text class="tab-icon">📊</text>
+      <text>持仓</text>
+    </view>
+    <view class="tab {{tabIndex==1?'active':''}}" bindtap="switchTab" data-index="1">
+      <text class="tab-icon">⭐</text>
+      <text>自选</text>
+    </view>
+  </view>
+
+  <!-- 持仓列表 -->
+  <view class="list" wx:if="{{tabIndex==0}}">
+    <view class="fund-card" wx:for="{{positions}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}" hover-class="card-hover">
+      <view class="card-top">
+        <view class="card-title-area">
+          <view class="fund-name">{{item.name}}</view>
+          <view class="fund-code">{{item.code}}</view>
+        </view>
+        <view class="card-pnl {{item.pnl >= 0 ? 'up' : 'down'}}">
+          <text class="pnl-amount">{{item.pnl >= 0 ? '+' : ''}}{{item.pnl}}</text>
+          <text class="pnl-rate">{{item.pnl_pct >= 0 ? '+' : ''}}{{item.pnl_pct}}%</text>
+        </view>
+      </view>
+      <view class="card-divider"></view>
+      <view class="card-row">
+        <view class="col">
+          <text class="val {{item.priceChange}}">{{item.buy_price}}</text>
+          <text class="lbl">买入价</text>
+        </view>
+        <view class="col-divider"></view>
+        <view class="col">
+          <text class="val">{{item.quantity}}</text>
+          <text class="lbl">持有份额</text>
+        </view>
+        <view class="col-divider"></view>
+        <view class="col">
+          <text class="val {{item.valueChange}}">{{item.current_value}}</text>
+          <text class="lbl">当前市值</text>
+        </view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{positions.length===0}}">
+      <view class="empty-icon">📭</view>
+      <text class="empty-text">暂无持仓</text>
+      <text class="empty-hint">点击底部「搜索」添加持仓</text>
+    </view>
+  </view>
+
+  <!-- 自选列表 -->
+  <view class="list" wx:if="{{tabIndex==1}}">
+    <view class="fav-card" wx:for="{{favorites}}" wx:key="code" hover-class="card-hover">
+      <view class="fav-info" bindtap="addFromFav" data-code="{{item.code}}" data-name="{{item.name}}" data-type="{{item.type}}">
+        <view class="fav-name">{{item.name}}</view>
+        <view class="fav-code">{{item.code}}</view>
+      </view>
+      <view class="fav-actions">
+        <view class="fav-btn add" catchtap="addFromFav" data-code="{{item.code}}" data-name="{{item.name}}" data-type="{{item.type}}">
+          <text>+ 持仓</text>
+        </view>
+        <view class="fav-btn del" catchtap="delFav" data-code="{{item.code}}">
+          <text>删除</text>
+        </view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{favorites.length===0}}">
+      <view class="empty-icon">⭐</view>
+      <text class="empty-text">暂无自选</text>
+      <text class="empty-hint">去搜索页添加感兴趣的标的</text>
+    </view>
+  </view>
+</view>
