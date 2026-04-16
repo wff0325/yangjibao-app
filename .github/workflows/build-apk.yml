@@ -23,15 +23,18 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # ===== 改用 npm install =====
+      # (npm ci 要求必须有 package-lock.json，npm install 会自己解析安装)
       - name: 📦 Install
-        run: npm ci
+        run: npm install
 
       - name: 🏗️ Build H5
         run: npm run build:h5
 
-      # ===== 初始化 Capacitor（纯 CI）=====
+      # ===== 自动安装 Capacitor 相关 Package 并初始化 =====
       - name: ⚙️ Init Capacitor
         run: |
+          npm install @capacitor/cli @capacitor/core @capacitor/android
           npx cap init demo com.demo.app --web-dir=dist/build/h5
           npx cap add android
 
