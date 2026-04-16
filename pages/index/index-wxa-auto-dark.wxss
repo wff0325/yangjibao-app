@@ -1,0 +1,51 @@
+/* 
+此文件为开发者工具生成，生成时间: 2026/4/16下午3:49:57
+使用方法：
+在 index.wxss 文件末尾引入样式
+```
+@import "./index-wxa-auto-dark.wxss";
+```
+ */
+
+@media (prefers-color-scheme: dark) {
+    .header-card {
+        background: rgb(0, 0, 0);
+    }
+
+    .total-label {
+        color: rgb(17, 17, 17);
+    }
+
+    .total-value {
+        color: rgb(17, 17, 17);
+    }
+
+    .pnl {
+        color: rgb(17, 17, 17);
+    }
+
+    .pnl.up {
+        color: rgb(48, 33, 0);
+    }
+
+    .pnl.down {
+        color: rgb(19, 65, 28);
+    }
+
+    .tab.active {
+        background: rgb(0, 0, 0);
+        color: rgb(17, 17, 17);
+    }
+
+    .item-pnl.up {
+        color: rgb(215, 12, 40);
+    }
+
+    .item-pnl.down {
+        color: rgb(0, 119, 16);
+    }
+
+    .add-btn {
+        color: rgb(87, 114, 220);
+    }
+}
