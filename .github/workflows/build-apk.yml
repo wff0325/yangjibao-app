@@ -23,25 +23,31 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ===== 自动修复 DCloud 版本冲突 (Node.js 精确修改版) =====
+      # ===== 自动修复 DCloud 版本冲突 (过滤掉残缺的 Alpha 测试版) =====
       - name: 🔧 Fix uni-app Dependencies
         run: |
           rm -f package-lock.json
           
-          # 1. 动态查询 npm 仓库，获取真正存在的最新 2.x 版本
-          LATEST_VUE2=$(npm show @dcloudio/uni-app versions --json | grep -o '"2\.[0-9a-zA-Z.-]*"' | sed 's/"//g' | tail -n 1)
-          echo "在 NPM 找到最新真实可用版本为: $LATEST_VUE2"
-          
-          # 2. 使用内嵌 Node.js 脚本，强制对齐所有相关依赖版本 (已修复换行报错问题)
           node -e "
             const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            console.log('正在从 NPM 获取 DCloud 真正的稳定版...');
+            const versions = JSON.parse(execSync('npm show @dcloudio/uni-app versions --json').toString());
+            
+            // 关键修复：只保留 2.x 版本，且剔除掉所有带 alpha 和 beta 的残缺测试版
+            const stableVersions = versions.filter(v => v.startsWith('2.') && !v.includes('alpha') && !v.includes('beta'));
+            const targetVersion = stableVersions.pop();
+            console.log('🎯 成功锁定最新稳定版本: ' + targetVersion);
+            
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            const version = '$LATEST_VUE2';
-            const ignoreList =['@dcloudio/types', '@dcloudio/uni-helper-json'];['dependencies', 'devDependencies'].forEach(type => {
+            const ignoreList =['@dcloudio/types', '@dcloudio/uni-helper-json'];
+            
+            ['dependencies', 'devDependencies'].forEach(type => {
               if (pkg[type]) {
                 for (let key in pkg[type]) {
                   if (key.startsWith('@dcloudio/') && !ignoreList.includes(key)) {
-                    pkg[type][key] = version;
+                    pkg[type][key] = targetVersion;
                   }
                 }
               }
@@ -49,12 +55,11 @@ jobs:
             
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
-          
-          echo "✅ package.json 中的 @dcloudio 依赖已全部强行对齐！"
 
-      # ===== 安装依赖 (关键：必须加 --legacy-peer-deps 模拟旧版 HBuilderX 环境) =====
+      # ===== 安装依赖 =====
+      # (强制加上 --legacy-peer-deps 防止 Node 16 npm 8 的严格模式漏装依赖)
       - name: 📦 Install
-        run: npm install --legacy-peer-deps
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       # ===== 编译前端 H5 产物 =====
       - name: 🏗️ Build H5
