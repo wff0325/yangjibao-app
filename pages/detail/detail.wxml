@@ -1,0 +1,89 @@
+<view class="container">
+  <!-- 顶部名称区 -->
+  <view class="header">
+    <view class="header-left">
+      <view class="header-name">{{detail.name}}</view>
+      <view class="header-code">{{detail.code}}</view>
+    </view>
+    <view class="header-badge">
+      <text class="badge-text">{{holdDays}}天</text>
+      <text class="badge-label">持有</text>
+    </view>
+  </view>
+
+  <!-- 价格卡片 -->
+  <view class="price-card">
+    <view class="price-main">
+      <text class="price">{{currentPrice}}</text>
+      <view class="chg-badge {{todayChg >= 0 ? 'up' : 'down'}}">
+        <text class="chg-arrow">{{todayChg >= 0 ? '▲' : '▼'}}</text>
+        <text>{{todayChg}}%</text>
+      </view>
+    </view>
+    <view class="price-label">最新净值 · {{detail.nav_date}}</view>
+  </view>
+
+  <!-- 收益统计 -->
+  <view class="stats-card">
+    <view class="stat-item highlight">
+      <view class="stat-icon-wrap {{pnl >= 0 ? 'up' : 'down'}}">
+        <text class="stat-icon">{{pnl >= 0 ? '📈' : '📉'}}</text>
+      </view>
+      <view class="stat-value {{pnl >= 0 ? 'up' : 'down'}}">{{pnl >= 0 ? '+' : ''}}{{pnl}}</view>
+      <view class="stat-label">持有收益</view>
+    </view>
+    <view class="stat-item highlight">
+      <view class="stat-icon-wrap {{pnlPct >= 0 ? 'up' : 'down'}}">
+        <text class="stat-icon">💹</text>
+      </view>
+      <view class="stat-value {{pnlPct >= 0 ? 'up' : 'down'}}">{{pnlPct >= 0 ? '+' : ''}}{{pnlPct}}%</view>
+      <view class="stat-label">收益率</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value">{{quantity}}</view>
+      <view class="stat-label">持有份额</view>
+    </view>
+    <view class="stat-item">
+      <view class="stat-value {{valueChange}}">¥{{totalCost}}</view>
+      <view class="stat-label">持仓成本</view>
+    </view>
+  </view>
+
+  <!-- 详细信息 -->
+  <view class="info-card">
+    <view class="info-title">持仓详情</view>
+    <view class="info-row">
+      <text class="info-label">持有金额</text>
+      <text class="info-value {{valueChange}}">¥{{currentValue}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">持仓占比</text>
+      <view class="pct-bar-wrap">
+        <view class="pct-bar" style="width: {{positionPct}}%"></view>
+      </view>
+      <text class="info-value">{{positionPct}}%</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">买入日期</text>
+      <text class="info-value">{{detail.buy_date}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">买入价格</text>
+      <text class="info-value {{priceChange}}">¥{{detail.buy_price}}</text>
+    </view>
+  </view>
+
+  <!-- 图表占位 -->
+  <view class="chart-card">
+    <view class="chart-title">业绩走势</view>
+    <view class="chart-placeholder">
+      <text class="chart-tip">📊 图表开发中...</text>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-bar">
+    <view class="btn-edit" bindtap="onEdit" hover-class="btn-hover">✏️ 编辑持仓</view>
+    <view class="btn-delete" bindtap="onDelete" hover-class="btn-hover">🗑️ 删除</view>
+  </view>
+</view>
