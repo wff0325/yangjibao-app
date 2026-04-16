@@ -1,4 +1,4 @@
-name: Build Android APK (Taro Flow)
+name: Build Android APK (Node 20 & Open Source)
 
 on:
   push:
@@ -14,49 +14,48 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20 # 使用你要求的 Node 20
 
-      - name: Install Taro CLI
+      - name: Install Converter
+        # 使用 uni-app 的转换工具，它在 Node 20 上兼容性最好
         run: |
-          # Taro 是京东出品的成熟框架，比之前的工具更稳定
-          npm install -g @tarojs/cli
+          npm install -g miniprogram-to-uniapp
+          # 修复该工具在 Linux 环境下的权限问题
+          chmod +x $(which w2u) || true
 
-      - name: Convert Mini-Program to Taro
+      - name: Convert Native WXML to Web Project
+        # 将你的原生小程序代码转换为一个可跨平台运行的项目
         run: |
-          # 使用 Taro 的转换引擎，它会自动处理 WXML/WXSS
-          # 它会生成一个名为 taroConvert 的文件夹
-          taro convert
+          # w2u 是 miniprogram-to-uniapp 的缩写
+          # 我们把转换后的代码直接放在 'converted_project' 文件夹
+          npx miniprogram-to-uniapp -i . -o ./converted_project
 
-      - name: Install Project Dependencies
-        run: |
-          cd taroConvert
-          npm install --legacy-peer-deps
-
-      - name: Setup Android Environment
+      - name: Setup Java & Android SDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build React Native Android (Taro Internal)
+      - name: Initialize Android Wrapper (Capacitor)
+        # Capacitor 是目前最流行的开源 App 容器，完美支持 Node 20
         run: |
-          cd taroConvert
-          # 使用 Capacitor 作为 App 容器
+          cd converted_project
+          # 初始化 package.json 防止报错
+          if [ ! -f package.json ]; then echo '{"name": "yangjibao", "version": "1.0.0"}' > package.json; fi
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init yangjibao com.yangjibao.app --web-dir ./dist
-          # 先编译出 Web 资源包
-          npm run build:h5 || true 
+          # 初始化安卓工程
+          npx cap init yangjibao com.yangjibao.app --web-dir .
           npx cap add android
-          npx cap sync android
-
-      - name: Build Release APK
+          
+      - name: Build APK
         run: |
-          cd taroConvert/android
+          # 进入安卓目录并利用 Gradle 编译
+          cd converted_project/android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK Result
         uses: actions/upload-artifact@v4
         with:
-          name: yangjibao-release-apk
-          path: taroConvert/android/app/build/outputs/apk/release/*.apk
+          name: yangjibao-apk
+          path: converted_project/android/app/build/outputs/apk/debug/*.apk
