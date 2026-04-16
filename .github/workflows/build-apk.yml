@@ -1,0 +1,52 @@
+name: Auto Build APK
+
+on:
+  push:
+    branches: [ main ] # 只有提交到 main 分支才会触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Tools
+        run: |
+          npm install -g miniprogram-to-uniapp
+          npm install
+
+      - name: Convert Mini-Program to Uni-app
+        # 这一步会生成一个 [项目名]_uni 的新文件夹
+        run: w2u .
+
+      - name: Setup Android Environment
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Initialize Capacitor Android
+        # 注意：这里假设转换后的文件夹名为 'kline-pnl_uni'（根据你 project.config.json 里的名字）
+        # 如果不确定名字，可以先在本地运行一次 w2u 查看生成的文件夹名并修改下方 CD 路径
+        run: |
+          cd *_uni || cd .
+          npx cap init yangjibao com.yangjibao.app --web-dir .
+          npx cap add android
+          
+      - name: Build Android APK
+        run: |
+          cd *_uni/android || cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: yangjibao-release-apk
+          path: ./**/build/outputs/apk/release/*.apk
