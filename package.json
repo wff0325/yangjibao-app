@@ -1,13 +1,20 @@
 {
   "name": "yangjibao-app",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "build:h5": "echo 'Building H5...'"
+    "build:h5": "cross-env NODE_ENV=production UNI_PLATFORM=h5 vue-cli-service uni-build"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "2.0.0-32920211029001",
+    "@dcloudio/uni-h5": "2.0.0-32920211029001"
   },
   "devDependencies": {
-    "@capacitor/cli": "^5.0.0",
-    "@capacitor/core": "^5.0.0",
-    "@capacitor/android": "^5.0.0",
-    "miniprogram-to-uniapp": "latest"
+    "@vue/cli-service": "4.5.19",
+    "@dcloudio/vue-cli-plugin-uni": "2.0.0-32920211029001",
+    "cross-env": "7.0.3",
+    "@capacitor/core": "5.0.0",
+    "@capacitor/cli": "5.0.0",
+    "@capacitor/android": "5.0.0"
   }
 }
