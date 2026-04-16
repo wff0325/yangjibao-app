@@ -11,68 +11,70 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Prepare Sandbox Directory
+      - name: Prepare Sandbox
         run: |
-          # 工具不支持 -o，它会自动在同级建文件夹。
-          # 为了防止路径混乱，我们建立一个专门的 _build/source 文件夹，把代码全移进去
+          # 建立沙盒隔离源码
           mkdir -p _build/source
           rsync -a --exclude='_build' --exclude='.git' ./ ./_build/source/
 
-      - name: Install & Patch Converter Tool
+      - name: Install & Patch Converter
         run: |
-          # 全局安装转换工具
           npm install -g miniprogram-to-uniapp
-          
-          # 【核心修复】打补丁，准确修复它漏发的文件导致的 MODULE_NOT_FOUND 报错
+          # 修复工具丢失文件的 Bug
           MOD_PATH="$(npm root -g)/miniprogram-to-uniapp/src/page/script/vantComponent"
           mkdir -p "$MOD_PATH"
           echo "module.exports = { transform: function(a){return a} };" > "$MOD_PATH/VantComponent-transformer.js"
 
       - name: Convert to Uni-app
         run: |
-          # 运行工具转换。-c 表示生成 Vue 工程（自带 package.json，安卓套壳必备）
-          # 这会在 _build/ 下生成一个类似于 source_uni 或 你的项目名_uni 的文件夹
+          # 强制转换为带有完整工程配置的 vue-cli 项目
           wtu -i ./_build/source -c
 
-      - name: Setup Java
+      - name: Setup Java Environment
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build Web Assets & Package App
+      - name: Compile H5 & Inject to Android Wrapper
         run: |
-          # 因为生成的文件夹名字不固定，我们通过脚本自动寻找到它
           GENERATED_DIR=$(find ./_build -maxdepth 1 -type d -name "*_uni*" | head -n 1)
-          echo "成功找到转换后的目录: $GENERATED_DIR"
           cd "$GENERATED_DIR"
           
-          # 1. 安装 Vue 工程依赖
+          # 【核心修复 1】：解决 Node 20 环境下老版本 Webpack 必报的 OpenSSL 报错
+          export NODE_OPTIONS=--openssl-legacy-provider
+          
+          echo "正在安装工程依赖..."
           npm install --legacy-peer-deps
           
-          # 2. 编译出 H5 网页静态文件（这才是安卓能看懂的东西）
-          npm run build:h5 || echo "编译警告: 部分页面转换可能不完美，但继续打包"
+          echo "正在编译小程序为 H5 网页..."
+          npm run build:h5
           
-          # 3. 安装 Android 容器进行套壳
+          # 【核心修复 2】：动态定位网页生成的真实路径，不再瞎猜
+          WEB_DIR=$(find . -name "index.html" -not -path "*/node_modules/*" -not -path "*/public/*" | xargs dirname | head -n 1)
+          
+          if[ -z "$WEB_DIR" ]; then
+            echo "❌ 致命错误：H5 编译失败，未能生成 index.html！请检查上方 npm run build:h5 的日志。"
+            exit 1
+          fi
+          
+          echo "✅ 成功找到网页资源目录: $WEB_DIR"
+          
+          # 安装安卓容器并初始化，路径自动指向找到的目录
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          
-          # 4. 把刚刚编译好的 H5 网页塞进安卓壳子里（默认产出路径为 dist/build/h5）
-          npx cap init yangjibao com.yangjibao.app --web-dir ./dist/build/h5
+          npx cap init yangjibao com.yangjibao.app --web-dir "$WEB_DIR"
           npx cap add android
           npx cap sync android
 
       - name: Compile Android APK
         run: |
-          # 再次动态寻找目录并进入安卓工程
           GENERATED_DIR=$(find ./_build -maxdepth 1 -type d -name "*_uni*" | head -n 1)
           cd "$GENERATED_DIR/android"
-          
-          # 启动安卓编译
           chmod +x gradlew
           ./gradlew assembleDebug
 
@@ -80,5 +82,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: yangjibao-android-apk
-          # 使用通配符匹配生成的目录名，确保 100% 能拿到包
           path: _build/*/android/app/build/outputs/apk/debug/*.apk
