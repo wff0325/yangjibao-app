@@ -2,7 +2,7 @@ name: Auto Build APK
 
 on:
   push:
-    branches: [ main ] # 只有提交到 main 分支才会触发
+    branches: [ main ]
 
 jobs:
   build:
@@ -18,12 +18,13 @@ jobs:
 
       - name: Install Tools
         run: |
-          npm install -g miniprogram-to-uniapp
-          npm install
+          # 不再依赖全局安装，直接通过 npx 调用
+          npm install miniprogram-to-uniapp
 
       - name: Convert Mini-Program to Uni-app
-        # 这一步会生成一个 [项目名]_uni 的新文件夹
-        run: w2u .
+        run: |
+          # 使用 npx 强制运行转换工具，并指定输出目录为 'converted'
+          npx miniprogram-to-uniapp -i . -o ./converted
 
       - name: Setup Android Environment
         uses: actions/setup-java@v4
@@ -31,17 +32,17 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Initialize Capacitor Android
-        # 注意：这里假设转换后的文件夹名为 'kline-pnl_uni'（根据你 project.config.json 里的名字）
-        # 如果不确定名字，可以先在本地运行一次 w2u 查看生成的文件夹名并修改下方 CD 路径
+      - name: Install Capacitor
         run: |
-          cd *_uni || cd .
+          cd converted
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          # 初始化 Capacitor，指定 web 目录为当前目录
           npx cap init yangjibao com.yangjibao.app --web-dir .
           npx cap add android
-          
+
       - name: Build Android APK
         run: |
-          cd *_uni/android || cd android
+          cd converted/android
           chmod +x gradlew
           ./gradlew assembleRelease
 
@@ -49,4 +50,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: yangjibao-release-apk
-          path: ./**/build/outputs/apk/release/*.apk
+          # 匹配生成的 release apk 文件
+          path: converted/android/app/build/outputs/apk/release/*.apk
