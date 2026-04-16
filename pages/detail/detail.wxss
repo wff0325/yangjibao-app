@@ -1,0 +1,175 @@
+page { background: linear-gradient(180deg, #667eea 0%, #f0f2f5 35%); min-height: 100vh; }
+
+.container { padding: 30rpx 30rpx 60rpx; }
+
+/* ===== 顶部 ===== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 40rpx 10rpx 30rpx;
+}
+.header-name { font-size: 44rpx; font-weight: 800; color: #fff; }
+.header-code { font-size: 24rpx; color: rgba(255,255,255,0.7); margin-top: 8rpx; letter-spacing: 2rpx; }
+.header-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.2);
+  border-radius: 16rpx;
+  padding: 16rpx 24rpx;
+}
+.badge-text { font-size: 32rpx; font-weight: 800; color: #fff; }
+.badge-label { font-size: 20rpx; color: rgba(255,255,255,0.7); margin-top: 2rpx; }
+
+/* ===== 价格卡片 ===== */
+.price-card {
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 44rpx 40rpx;
+  text-align: center;
+  margin-top: 16rpx;
+  box-shadow: 0 8rpx 40rpx rgba(0,0,0,0.08);
+}
+.price-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+}
+.price { font-size: 72rpx; font-weight: 800; color: #1a1a2e; }
+.chg-badge {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  padding: 10rpx 20rpx;
+  border-radius: 20rpx;
+}
+.chg-badge.up { background: #fff1f1; color: #ef4444; }
+.chg-badge.down { background: #f0fdf4; color: #22c55e; }
+.chg-arrow { font-size: 18rpx; }
+.price-label { font-size: 24rpx; color: #aaa; margin-top: 16rpx; }
+
+/* ===== 统计网格 ===== */
+.stats-card {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+.stat-item {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx 24rpx;
+  text-align: center;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.04);
+}
+.stat-item.highlight {
+  padding-top: 20rpx;
+}
+.stat-icon-wrap {
+  display: inline-flex;
+  padding: 8rpx;
+  border-radius: 12rpx;
+  margin-bottom: 8rpx;
+}
+.stat-icon { font-size: 32rpx; }
+.stat-value { font-size: 38rpx; font-weight: 800; color: #1a1a2e; }
+.stat-value.up { color: #ef4444; }
+.stat-value.down { color: #22c55e; }
+.stat-label { font-size: 22rpx; color: #aaa; margin-top: 8rpx; letter-spacing: 1rpx; }
+
+/* ===== 详情卡片 ===== */
+.info-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 36rpx;
+  margin-top: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.04);
+}
+.info-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 24rpx;
+  padding-left: 16rpx;
+  border-left: 6rpx solid #667eea;
+}
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { color: #999; font-size: 28rpx; }
+.info-value { font-weight: 700; color: #1a1a2e; font-size: 28rpx; }
+.info-value.up { color: #ef4444; }
+.info-value.down { color: #22c55e; }
+
+/* 占比进度条 */
+.pct-bar-wrap {
+  flex: 1;
+  height: 12rpx;
+  background: #f0f0f0;
+  border-radius: 6rpx;
+  margin: 0 24rpx;
+  overflow: hidden;
+}
+.pct-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 6rpx;
+  min-width: 4rpx;
+}
+
+/* ===== 图表占位 ===== */
+.chart-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 36rpx;
+  margin-top: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.04);
+}
+.chart-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 20rpx;
+  padding-left: 16rpx;
+  border-left: 6rpx solid #667eea;
+}
+.chart-placeholder {
+  height: 300rpx;
+  background: linear-gradient(135deg, #f8f9fc 0%, #eef1f8 100%);
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chart-tip { color: #aaa; font-size: 28rpx; }
+
+/* ===== 操作按钮 ===== */
+.action-bar { display: flex; gap: 20rpx; margin-top: 40rpx; padding-bottom: 40rpx; }
+.btn-edit, .btn-delete {
+  flex: 1;
+  padding: 30rpx 0;
+  border-radius: 50rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  text-align: center;
+}
+.btn-edit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(102,126,234,0.35);
+}
+.btn-delete {
+  background: #fff;
+  color: #ef4444;
+  border: 2rpx solid #fecaca;
+}
+.btn-hover { opacity: 0.85; transform: scale(0.98); }
