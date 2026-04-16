@@ -17,14 +17,26 @@ jobs:
         with:
           node-version: 16
 
-      - name: ☕ Java
+- name: ☕ Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # ===== 改用 npm install =====
-      # (npm ci 要求必须有 package-lock.json，npm install 会自己解析安装)
+      # ===== 新增：修复 DCloud 幽灵版本问题 =====
+      - name: 🔧 Fix uni-app Phantom Version
+        run: |
+          # 1. 删掉 lock 文件（防止里面有死掉的旧淘宝镜像域名 registry.npm.taobao.org 导致卡死）
+          rm -f package-lock.json
+          
+          # 2. 动态查询 npm 仓库，获取 @dcloudio/uni-app 真正存在的最新 Vue2 版本
+          LATEST_VUE2=$(npm show @dcloudio/uni-app versions | grep -o "2\.[0-9a-zA-Z.-]*" | tail -n 1)
+          echo "在 NPM 找到最新真实可用版本为: $LATEST_VUE2"
+          
+          # 3. 把 package.json 里所有报 404 的 2.0.0-32920211029001 全部替换为这个真实版本
+          sed -i "s/2.0.0-32920211029001/$LATEST_VUE2/g" package.json
+
+      # ===== 正常执行安装 =====
       - name: 📦 Install
         run: npm install
 
