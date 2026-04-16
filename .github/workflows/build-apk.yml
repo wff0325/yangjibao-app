@@ -17,29 +17,30 @@ jobs:
         with:
           node-version: 16
 
-- name: ☕ Java
+      - name: ☕ Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # ===== 新增：修复 DCloud 幽灵版本问题 =====
+      # ===== 自动修复 DCloud 幽灵版本 404 报错 =====
       - name: 🔧 Fix uni-app Phantom Version
         run: |
-          # 1. 删掉 lock 文件（防止里面有死掉的旧淘宝镜像域名 registry.npm.taobao.org 导致卡死）
+          # 1. 删掉 lock 文件，强制根据 package.json 重新解析最新包，避免旧淘宝源卡死
           rm -f package-lock.json
           
-          # 2. 动态查询 npm 仓库，获取 @dcloudio/uni-app 真正存在的最新 Vue2 版本
-          LATEST_VUE2=$(npm show @dcloudio/uni-app versions | grep -o "2\.[0-9a-zA-Z.-]*" | tail -n 1)
+          # 2. 动态查询 npm 仓库，获取 @dcloudio/uni-app 真正存在的最新 2.x 版本
+          LATEST_VUE2=$(npm show @dcloudio/uni-app versions --json | grep -o '"2\.[0-9a-zA-Z.-]*"' | sed 's/"//g' | tail -n 1)
           echo "在 NPM 找到最新真实可用版本为: $LATEST_VUE2"
           
-          # 3. 把 package.json 里所有报 404 的 2.0.0-32920211029001 全部替换为这个真实版本
+          # 3. 批量将 package.json 里报错的 2.0.0-32920211029001 替换为该真实版本
           sed -i "s/2.0.0-32920211029001/$LATEST_VUE2/g" package.json
 
-      # ===== 正常执行安装 =====
+      # ===== 安装项目依赖 =====
       - name: 📦 Install
         run: npm install
 
+      # ===== 编译前端 H5 产物 =====
       - name: 🏗️ Build H5
         run: npm run build:h5
 
@@ -53,7 +54,7 @@ jobs:
       - name: 🔄 Sync
         run: npx cap sync android
 
-      # ===== 自动生成 keystore（关键）=====
+      # ===== 自动生成 keystore 签名文件 =====
       - name: 🔐 Generate keystore
         run: |
           keytool -genkeypair -v \
@@ -64,7 +65,7 @@ jobs:
           -keypass 123456 \
           -dname "CN=demo, OU=dev, O=dev, L=dev, S=dev, C=US"
 
-      # ===== 写签名配置 =====
+      # ===== 将签名配置写入 Android gradle.properties =====
       - name: ✍️ Configure signing
         run: |
           cat >> android/gradle.properties <<EOF
@@ -74,7 +75,7 @@ jobs:
           MYAPP_UPLOAD_KEY_PASSWORD=123456
           EOF
 
-      # ===== 修改 build.gradle =====
+      # ===== 动态修改 build.gradle 以支持 Release 签名打包 =====
       - name: 🔧 Patch gradle
         run: |
           sed -i '/buildTypes {/a \
@@ -89,18 +90,21 @@ jobs:
 
           sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/g' android/app/build.gradle
 
+      # ===== 编译 APK =====
       - name: 📦 Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease
 
+      # ===== 上传 APK 为 Artifact (供页面手动下载) =====
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: apk
           path: android/app/build/outputs/apk/release/app-release.apk
 
+      # ===== 发布到 Github Releases (自动创建 Release 版本) =====
       - name: 🚀 Release
         uses: softprops/action-gh-release@v2
         with:
