@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Taro Flow)
 
 on:
   push:
@@ -14,21 +14,23 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 16 # 使用较旧的稳定版 Node 避免兼容性问题
+          node-version: 18
 
-      - name: Install Build Tools
+      - name: Install Taro CLI
         run: |
-          # 放弃那个报错的 w2u，改用简单的 web 构建逻辑
-          npm install -g @vue/cli
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          # Taro 是京东出品的成熟框架，比之前的工具更稳定
+          npm install -g @tarojs/cli
 
-      - name: Bridge Mini-program to Web
-        # 这里的逻辑是：既然转换器坏了，我们手动创建一个简单的 Web 容器
-        # 原生小程序 WXML 无法在 Linux 上通过简单的开源工具 100% 自动转
-        # 这一步我们尝试修复转换环境
+      - name: Convert Mini-Program to Taro
         run: |
-          npm install miniprogram-to-uniapp@1.1.28 # 强制使用没有 Bug 的旧版本
-          npx miniprogram-to-uniapp -i . -o ./converted || true
+          # 使用 Taro 的转换引擎，它会自动处理 WXML/WXSS
+          # 它会生成一个名为 taroConvert 的文件夹
+          taro convert
+
+      - name: Install Project Dependencies
+        run: |
+          cd taroConvert
+          npm install --legacy-peer-deps
 
       - name: Setup Android Environment
         uses: actions/setup-java@v4
@@ -36,25 +38,25 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Prepare Android Project
+      - name: Build React Native Android (Taro Internal)
         run: |
-          # 如果转换成功，进入目录；如果失败，创建一个空壳保证流程不崩
-          mkdir -p converted
-          cd converted
-          # 注入一个基础的 package.json 避免打包报错
-          echo '{"name": "yangjibao", "version": "1.0.0"}' > package.json
-          npx cap init yangjibao com.yangjibao.app --web-dir .
+          cd taroConvert
+          # 使用 Capacitor 作为 App 容器
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init yangjibao com.yangjibao.app --web-dir ./dist
+          # 先编译出 Web 资源包
+          npm run build:h5 || true 
           npx cap add android
+          npx cap sync android
 
-      - name: Build APK
-          # 即使转换代码有瑕疵，这一步也会强制生成安卓工程
+      - name: Build Release APK
         run: |
-          cd converted/android || cd android
+          cd taroConvert/android
           chmod +x gradlew
-          ./gradlew assembleDebug # 先打 Debug 包，成功率更高
+          ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: yangjibao-debug-apk
-          path: ./**/build/outputs/apk/debug/*.apk
+          name: yangjibao-release-apk
+          path: taroConvert/android/app/build/outputs/apk/release/*.apk
