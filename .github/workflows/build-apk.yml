@@ -23,7 +23,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ===== 自动修复 DCloud 版本冲突 (升级为 Node.js 精确修改版) =====
+      # ===== 自动修复 DCloud 版本冲突 (Node.js 精确修改版) =====
       - name: 🔧 Fix uni-app Dependencies
         run: |
           rm -f package-lock.json
@@ -32,12 +32,12 @@ jobs:
           LATEST_VUE2=$(npm show @dcloudio/uni-app versions --json | grep -o '"2\.[0-9a-zA-Z.-]*"' | sed 's/"//g' | tail -n 1)
           echo "在 NPM 找到最新真实可用版本为: $LATEST_VUE2"
           
-          # 2. 使用内嵌 Node.js 脚本，把 package.json 里所有 @dcloudio 相关的包强制对齐版本
+          # 2. 使用内嵌 Node.js 脚本，强制对齐所有相关依赖版本 (已修复换行报错问题)
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             const version = '$LATEST_VUE2';
-            const ignoreList =['@dcloudio/types', '@dcloudio/uni-helper-json']; // 这两个包版本独立，需忽略['dependencies', 'devDependencies'].forEach(type => {
+            const ignoreList =['@dcloudio/types', '@dcloudio/uni-helper-json'];['dependencies', 'devDependencies'].forEach(type => {
               if (pkg[type]) {
                 for (let key in pkg[type]) {
                   if (key.startsWith('@dcloudio/') && !ignoreList.includes(key)) {
@@ -46,6 +46,7 @@ jobs:
                 }
               }
             });
+            
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
           "
           
