@@ -1,4 +1,4 @@
-name: Build Android APK (Ultimate Fix)
+name: Build APK (Full Auto)
 
 on:
   push:
@@ -7,85 +7,89 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: 🟢 Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 16
 
-      - name: Prepare Sandbox
-        run: |
-          mkdir -p _build/source
-          rsync -a --exclude='_build' --exclude='.git' ./ ./_build/source/
-
-      - name: Install & Patch Converter
-        run: |
-          npm install -g miniprogram-to-uniapp
-          # 修复工具丢失文件的 Bug
-          MOD_PATH="$(npm root -g)/miniprogram-to-uniapp/src/page/script/vantComponent"
-          mkdir -p "$MOD_PATH"
-          echo "module.exports = { transform: function(a){return a} };" > "$MOD_PATH/VantComponent-transformer.js"
-
-      - name: Convert to Uni-app
-        run: |
-          # 强制转换为带有完整工程配置的 vue-cli 项目
-          wtu -i ./_build/source -c
-
-      - name: Setup Java Environment
+      - name: ☕ Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
 
-      - name: Compile H5 & Inject to Android Wrapper
+      - name: 📦 Install
+        run: npm ci
+
+      - name: 🏗️ Build H5
+        run: npm run build:h5
+
+      # ===== 初始化 Capacitor（纯 CI）=====
+      - name: ⚙️ Init Capacitor
         run: |
-          GENERATED_DIR=$(find ./_build -maxdepth 1 -type d -name "*_uni*" | head -n 1)
-          cd "$GENERATED_DIR"
-          
-          export NODE_OPTIONS=--openssl-legacy-provider
-          
-          echo "正在安装工程依赖..."
-          npm install --legacy-peer-deps
-          
-          # 【核弹级修复】：解决 Node 20 下 webpack-chain 接收到 undefined 导致崩溃的官方 Bug
-          echo "正在动态修复 vue-cli-plugin-uni 的底层源码..."
-          CHAIN_FILE="node_modules/@dcloudio/vue-cli-plugin-uni/lib/chain-webpack.js"
-          if [ -f "$CHAIN_FILE" ]; then
-            sed -i 's/Object.assign(options/Object.assign(options = options || {}/g' "$CHAIN_FILE"
-            echo "底层源码修复完毕！"
-          fi
-          
-          echo "正在编译小程序为 H5 网页..."
-          npm run build:h5
-          
-          # 动态定位网页生成的真实路径
-          WEB_DIR=$(find . -name "index.html" -not -path "*/node_modules/*" -not -path "*/public/*" | xargs dirname | head -n 1)
-          
-          if [ -z "$WEB_DIR" ]; then
-            echo "❌ 致命错误：H5 编译失败，未能生成 index.html！请检查上方 npm run build:h5 的日志。"
-            exit 1
-          fi
-          
-          echo "✅ 成功找到网页资源目录: $WEB_DIR"
-          
-          # 安装安卓容器并初始化
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init yangjibao com.yangjibao.app --web-dir "$WEB_DIR"
+          npx cap init demo com.demo.app --web-dir=dist/build/h5
           npx cap add android
-          npx cap sync android
 
-      - name: Compile Android APK
+      - name: 🔄 Sync
+        run: npx cap sync android
+
+      # ===== 自动生成 keystore（关键）=====
+      - name: 🔐 Generate keystore
         run: |
-          GENERATED_DIR=$(find ./_build -maxdepth 1 -type d -name "*_uni*" | head -n 1)
-          cd "$GENERATED_DIR/android"
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          keytool -genkeypair -v \
+          -keystore android/app/release.keystore \
+          -alias demo \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -storepass 123456 \
+          -keypass 123456 \
+          -dname "CN=demo, OU=dev, O=dev, L=dev, S=dev, C=US"
 
-      - name: Upload APK
+      # ===== 写签名配置 =====
+      - name: ✍️ Configure signing
+        run: |
+          cat >> android/gradle.properties <<EOF
+          MYAPP_UPLOAD_STORE_FILE=release.keystore
+          MYAPP_UPLOAD_KEY_ALIAS=demo
+          MYAPP_UPLOAD_STORE_PASSWORD=123456
+          MYAPP_UPLOAD_KEY_PASSWORD=123456
+          EOF
+
+      # ===== 修改 build.gradle =====
+      - name: 🔧 Patch gradle
+        run: |
+          sed -i '/buildTypes {/a \
+              signingConfigs {\n\
+                  release {\n\
+                      storeFile file(MYAPP_UPLOAD_STORE_FILE)\n\
+                      storePassword MYAPP_UPLOAD_STORE_PASSWORD\n\
+                      keyAlias MYAPP_UPLOAD_KEY_ALIAS\n\
+                      keyPassword MYAPP_UPLOAD_KEY_PASSWORD\n\
+                  }\n\
+              }' android/app/build.gradle
+
+          sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/g' android/app/build.gradle
+
+      - name: 📦 Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: yangjibao-android-apk
-          path: _build/*/android/app/build/outputs/apk/debug/*.apk
+          name: apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+
+      - name: 🚀 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          files: android/app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
