@@ -23,36 +23,57 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ===== 第一步：修复内测/幽灵版本号 =====
-      - name: 🔧 Fix uni-app Phantom Version
+      # ===== 彻底物理重置：解决版本找不到和模块缺失 =====
+      - name: 🔧 Force Fix Dependencies
         run: |
           rm -f package-lock.json
-          # 直接把特定的内测版本统一替换为 ^2.0.0 宽泛版本，让 npm 自动匹配最新可用稳定版
-          sed -i 's/2.0.0-32920211029001/^2.0.0/g' package.json
+          
+          # 1. 彻底从 package.json 里删掉所有 @dcloudio 的包，防止旧版本号干扰
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const fix = (obj) => {
+              if (!obj) return;
+              for (let key in obj) {
+                if (key.startsWith('@dcloudio/')) delete obj[key];
+              }
+            };
+            fix(pkg.dependencies);
+            fix(pkg.devDependencies);
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
 
-      # ===== 第二步：安装常规依赖 =====
-      - name: 📦 Install Base Dependencies
-        run: npm install --legacy-peer-deps --no-audit --no-fund
+          # 2. 强行安装 NPM 上存在的确定版本，并手动补齐那个该死的 i18n 和 shared 包
+          # 我们使用 2.0.1-3091020231219001，这是一个绝对能拉下来的 Vue2 稳定版本
+          REAL_V="2.0.1-3091020231219001"
+          npm install --legacy-peer-deps \
+            @dcloudio/uni-app@$REAL_V \
+            @dcloudio/uni-app-plus@$REAL_V \
+            @dcloudio/uni-cli-shared@$REAL_V \
+            @dcloudio/uni-cli-i18n@$REAL_V \
+            @dcloudio/uni-h5@$REAL_V \
+            @dcloudio/uni-helper-json@latest \
+            @dcloudio/vue-cli-plugin-uni@$REAL_V \
+            @dcloudio/webpack-uni-mp-loader@$REAL_V \
+            @dcloudio/webpack-uni-pages-loader@$REAL_V
 
-      # ===== 第三步（终极必杀技）：强行单独补齐 DCloud 漏掉的底层核心包 =====
-      - name: 🚑 Force Install Missing DCloud Plugins
-        run: npm install @dcloudio/uni-cli-i18n@^2.0.0 @dcloudio/uni-cli-shared@^2.0.0 -D --legacy-peer-deps --no-audit --no-fund
+      # ===== 安装项目剩余依赖 =====
+      - name: 📦 Install Remaining
+        run: npm install --legacy-peer-deps --no-audit
 
       # ===== 编译前端 H5 产物 =====
       - name: 🏗️ Build H5
         run: npm run build:h5
 
-      # ===== 自动安装 Capacitor 相关 Package 并初始化 =====
+      # ===== Capacitor 流程 (带上 --legacy-peer-deps 保证万无一失) =====
       - name: ⚙️ Init Capacitor
         run: |
           npm install @capacitor/cli @capacitor/core @capacitor/android --legacy-peer-deps
           npx cap init demo com.demo.app --web-dir=dist/build/h5
           npx cap add android
+          npx cap sync android
 
-      - name: 🔄 Sync
-        run: npx cap sync android
-
-      # ===== 自动生成 keystore 签名文件 =====
+      # ===== 签名与打包 APK =====
       - name: 🔐 Generate keystore
         run: |
           keytool -genkeypair -v \
@@ -63,7 +84,6 @@ jobs:
           -keypass 123456 \
           -dname "CN=demo, OU=dev, O=dev, L=dev, S=dev, C=US"
 
-      # ===== 将签名配置写入 Android gradle.properties =====
       - name: ✍️ Configure signing
         run: |
           cat >> android/gradle.properties <<EOF
@@ -73,7 +93,6 @@ jobs:
           MYAPP_UPLOAD_KEY_PASSWORD=123456
           EOF
 
-      # ===== 动态修改 build.gradle 以支持 Release 签名打包 =====
       - name: 🔧 Patch gradle
         run: |
           sed -i '/buildTypes {/a \
@@ -85,24 +104,20 @@ jobs:
                       keyPassword MYAPP_UPLOAD_KEY_PASSWORD\n\
                   }\n\
               }' android/app/build.gradle
-
           sed -i 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }/g' android/app/build.gradle
 
-      # ===== 编译 APK =====
       - name: 📦 Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      # ===== 上传 APK 为 Artifact (供页面手动下载) =====
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: apk
           path: android/app/build/outputs/apk/release/app-release.apk
 
-      # ===== 发布到 Github Releases (自动创建 Release 版本) =====
       - name: 🚀 Release
         uses: softprops/action-gh-release@v2
         with:
