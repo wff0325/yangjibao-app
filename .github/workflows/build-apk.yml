@@ -23,22 +23,37 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ===== 自动修复 DCloud 幽灵版本 404 报错 =====
-      - name: 🔧 Fix uni-app Phantom Version
+      # ===== 自动修复 DCloud 版本冲突 (升级为 Node.js 精确修改版) =====
+      - name: 🔧 Fix uni-app Dependencies
         run: |
-          # 1. 删掉 lock 文件，强制根据 package.json 重新解析最新包，避免旧淘宝源卡死
           rm -f package-lock.json
           
-          # 2. 动态查询 npm 仓库，获取 @dcloudio/uni-app 真正存在的最新 2.x 版本
+          # 1. 动态查询 npm 仓库，获取真正存在的最新 2.x 版本
           LATEST_VUE2=$(npm show @dcloudio/uni-app versions --json | grep -o '"2\.[0-9a-zA-Z.-]*"' | sed 's/"//g' | tail -n 1)
           echo "在 NPM 找到最新真实可用版本为: $LATEST_VUE2"
           
-          # 3. 批量将 package.json 里报错的 2.0.0-32920211029001 替换为该真实版本
-          sed -i "s/2.0.0-32920211029001/$LATEST_VUE2/g" package.json
+          # 2. 使用内嵌 Node.js 脚本，把 package.json 里所有 @dcloudio 相关的包强制对齐版本
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const version = '$LATEST_VUE2';
+            const ignoreList =['@dcloudio/types', '@dcloudio/uni-helper-json']; // 这两个包版本独立，需忽略['dependencies', 'devDependencies'].forEach(type => {
+              if (pkg[type]) {
+                for (let key in pkg[type]) {
+                  if (key.startsWith('@dcloudio/') && !ignoreList.includes(key)) {
+                    pkg[type][key] = version;
+                  }
+                }
+              }
+            });
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
+          
+          echo "✅ package.json 中的 @dcloudio 依赖已全部强行对齐！"
 
-      # ===== 安装项目依赖 =====
+      # ===== 安装依赖 (关键：必须加 --legacy-peer-deps 模拟旧版 HBuilderX 环境) =====
       - name: 📦 Install
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       # ===== 编译前端 H5 产物 =====
       - name: 🏗️ Build H5
@@ -47,7 +62,7 @@ jobs:
       # ===== 自动安装 Capacitor 相关 Package 并初始化 =====
       - name: ⚙️ Init Capacitor
         run: |
-          npm install @capacitor/cli @capacitor/core @capacitor/android
+          npm install @capacitor/cli @capacitor/core @capacitor/android --legacy-peer-deps
           npx cap init demo com.demo.app --web-dir=dist/build/h5
           npx cap add android
 
